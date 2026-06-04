@@ -1,11 +1,14 @@
 [package]
 name = "extract-field-from-address"
 categories = ["command-line-utilities"]
+repository = "https://github.com/flaredgitee/extract-field-from-address"
 description = "Extract field from an address string."
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["flaredgitee <equalityedge@qq.com"]
 license = "MIT OR Apache-2.0"
+readme = ["README.md"]
+keywords = ["cli", "parser"]
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
