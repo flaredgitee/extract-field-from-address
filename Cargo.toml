@@ -1,12 +1,11 @@
 [package]
 name = "extract-field-from-address"
 categories = ["command-line-utilities"]
-description = "Extract IP from an address string."
-version = "0.1.1"
+description = "Extract field from an address string."
+version = "0.2.0"
 edition = "2024"
 authors = ["flaredgitee <equalityedge@qq.com"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
-tap = "1.0.1"

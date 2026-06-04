@@ -1,33 +1,43 @@
-# Extract IP From Address
+# Extract Field From Address
 
-A small Rust CLI utility to extract the IP portion
-from address strings that may include ports.
-Supports IPv4 and IPv6 (bracketed) formats.
+Extract the IP or port from an address string.
 
-## Quick Start
+## Features
 
-### Run from stdin
+- Default output is the IP field
+- `--ip` explicitly extracts IP
+- `-p` or `--port` extracts port
+- Use `-` as the positional argument to read one line from stdin
+- Supports:
+  - `IPv4`
+  - `IPv4:port`
+  - `IPv6`
+  - `[IPv6]:port`
 
-```shell
-echo "192.168.1.1:8080" | cargo run --quiet
+## Examples
+
+```bash
+extract-field-from-address 1.2.3.4:80
+# 1.2.3.4
 ```
 
-### Build & Install with Cargo
+```bash
+extract-field-from-address 1.2.3.4:80 --port
+# 80
+```
 
-```shell
+```bash
+extract-field-from-address [2001:1a::1]:443 --ip
+# 2001:1a::1
+```
+
+```bash
+echo '10.0.0.1:8080\n' | extract-field-from-address -
+# 10.0.0.1
+```
+
+## Build & Install with Cargo
+
+```bash
 cargo install --path .
 ```
-
-## Notes & Edge Cases
-
-- Bracketed IPv6 with port (`[ipv6]:port`) is supported
-  and returns the IPv6 without brackets.
-- Plain IPv6 without brackets is supported only when there is no trailing port
-  (for example `2001:db8::1`).
-- IPv4 with numeric port (`x.x.x.x:port`) is supported.
-- Invalid or unsupported inputs are returned unchanged.
-- Input read failures are reported as errors.
-
-## License
-
-MIT or Apache-2.0
