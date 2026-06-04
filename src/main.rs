@@ -1,21 +1,13 @@
 use clap::{CommandFactory, Parser};
-use once_cell::sync::Lazy;
-use regex::Regex;
 use std::{
     error::Error,
     fmt,
     io::{self, BufRead, Write},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     process::ExitCode,
+    str::FromStr,
 };
 use tap::Pipe;
-
-static BRACKETED_IPV6: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\[(?P<ip>[^\]]+)\](?::\d+)?$").unwrap());
-
-static IPV4_WITH_OPTIONAL_PORT: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(?P<ip>(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?$").unwrap());
-
-static PLAIN_IPV6: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(?P<ip>[0-9A-Fa-f:]+)$").unwrap());
 
 #[derive(Parser, Debug)]
 #[command(
@@ -32,38 +24,65 @@ struct Cli {}
 #[derive(Debug)]
 enum AppError {
     ReadStdin(io::Error),
+    InvalidInput(String),
 }
 
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ReadStdin(e) => write!(f, "failed to read stdin: {}", e),
+            Self::InvalidInput(s) => write!(f, "invalid address input: {}", s),
         }
     }
 }
 
 impl Error for AppError {}
 
-fn extract_ip_from_address(address: &str) -> String {
-    address.trim().pipe(|address| {
-        BRACKETED_IPV6
-            .captures(address)
-            .and_then(|caps| caps.name("ip"))
-            .map(|m| m.as_str().to_owned())
-            .or_else(|| {
-                IPV4_WITH_OPTIONAL_PORT
-                    .captures(address)
-                    .and_then(|caps| caps.name("ip"))
-                    .map(|m| m.as_str().to_owned())
-            })
-            .or_else(|| {
-                PLAIN_IPV6
-                    .captures(address)
-                    .and_then(|caps| caps.name("ip"))
-                    .map(|m| m.as_str().to_owned())
-            })
-            .unwrap_or_else(|| address.to_owned())
-    })
+fn parse_plain_ip(address: &str) -> Result<String, AppError> {
+    IpAddr::from_str(address)
+        .map(|ip| ip.to_string())
+        .map_err(|_| AppError::InvalidInput(address.to_owned()))
+}
+
+fn parse_ipv4_with_optional_port(address: &str) -> Result<String, AppError> {
+    address
+        .rsplit_once(':')
+        .filter(|(host, port)| {
+            host.parse::<Ipv4Addr>().is_ok()
+                && !port.is_empty()
+                && port.chars().all(|c| c.is_ascii_digit())
+        })
+        .map(|(host, _)| host.to_owned())
+        .ok_or_else(|| AppError::InvalidInput(address.to_owned()))
+}
+
+fn parse_bracketed_ipv6(address: &str) -> Result<String, AppError> {
+    address
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once(']'))
+        .map(|(ip_part, tail)| {
+            Ipv6Addr::from_str(ip_part)
+                .map(|ip| (ip.to_string(), tail))
+                .map_err(|_| AppError::InvalidInput(address.to_owned()))
+        })
+        .ok_or_else(|| AppError::InvalidInput(address.to_owned()))?
+        .and_then(|(ip, tail)| {
+            if tail.is_empty()
+                || (tail.starts_with(':') && tail[1..].chars().all(|c| c.is_ascii_digit()))
+            {
+                Ok(ip)
+            } else {
+                Err(AppError::InvalidInput(address.to_owned()))
+            }
+        })
+}
+
+fn extract_ip_from_address(address: &str) -> Result<String, AppError> {
+    let address = address.trim();
+
+    parse_bracketed_ipv6(address)
+        .or_else(|_| parse_ipv4_with_optional_port(address))
+        .or_else(|_| parse_plain_ip(address))
 }
 
 fn read_address() -> Result<String, AppError> {
@@ -84,8 +103,7 @@ fn read_address() -> Result<String, AppError> {
 fn run() -> Result<(), AppError> {
     read_address()?
         .pipe_borrow(extract_ip_from_address)
-        .pipe(|result| println!("{result}"));
-    Ok(())
+        .map(|result| println!("{result}"))
 }
 
 fn main() -> ExitCode {
