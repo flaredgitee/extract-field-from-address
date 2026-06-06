@@ -9,11 +9,7 @@ use std::{
 };
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "extract-field-from-address",
-    version = "0.2.0",
-    about = "Extract IP or port from an address string."
-)]
+#[command(version, about)]
 #[command(long_about = r#"
 Extract a field from an address string.
 
